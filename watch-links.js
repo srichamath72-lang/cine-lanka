@@ -68,9 +68,9 @@
     linksWrap.style.flexDirection = 'column';
     linksWrap.style.gap = '8px';
 
-    getWatchLinks(movie).forEach(function (l) {
-      var a = document.createElement('a');
-      a.href = l.url;
+    getWatchLinks(movie).forEach(function (link) {
+    var a = document.createElement('a');
+    a.href = link.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
       a.textContent = l.icon + '  ' + l.name;
