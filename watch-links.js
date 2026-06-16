@@ -73,7 +73,7 @@
     a.href = link.url;
       a.target = '_blank';
       a.rel = 'noopener noreferrer';
-      a.textContent = l.icon + '  ' + l.name;
+      a.innerHTML = '<i class="' + link.icon + '"></i> ' + link.name;
       a.style.display = 'flex';
       a.style.alignItems = 'center';
       a.style.gap = '8px';
