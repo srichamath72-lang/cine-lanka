@@ -339,7 +339,7 @@ function MovieModal({movie,onClose,inWatchlist,onToggle,lang}){
           <div className="modal-row"><b>{t.director}:</b> {movie.director}</div>
           <div className="modal-row"><b>{t.cast}:</b> {movie.cast.join(', ')}</div>
           <div className="modal-actions">
-           <button className="btn btn-white btn-sm">▶ {t.watchTrailer}</button>
+           <button className="btn btn-white btn-sm" onClick={()=>window.showWatchLinks&&window.showWatchLinks(movie)}>► {t.watchTrailer}</button>
             <button className={"btn btn-sm "+(inWatchlist?'btn-grad':'btn-outline')} onClick={()=>onToggle(movie.id)}>
               🔖 {inWatchlist? t.inList : t.addList}
             </button>
