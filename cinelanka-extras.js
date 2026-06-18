@@ -1,14 +1,20 @@
-// cinelanka-extras.js
-// Safe, minimal version: only adds the "Watch Trailer" -> streaming links popup.
-// No DOM scanning, no automatic patching - just exposes one global function
-// that index.html's button can call. This cannot crash the page on load.
+// cinelanka-extras.js (v2)
+// Safe version: "Watch Trailer" -> streaming links popup.
+// Fixed to never silently fail - if movie data is missing some fields,
+// it fills in safe defaults instead of breaking.
 
 window.showWatchLinks = function (movie) {
   try {
-    var q = encodeURIComponent(movie.title + ' ' + movie.year);
+    // Defensive defaults - never let a missing field break the popup.
+    movie = movie || {};
+    var title = movie.title || "this movie";
+    var year = movie.year || "";
+    var type = movie.type || "world";
+
+    var q = encodeURIComponent(title + ' ' + year);
     var links = [];
 
-    if (movie.type === 'srilanka') {
+    if (type === 'srilanka') {
       links = [
         { name: 'Search on YouTube', icon: '▶️', url: 'https://www.youtube.com/results?search_query=' + q + ' full movie' },
         { name: 'Search on PEOTV', icon: '📺', url: 'https://www.google.com/search?q=' + q + ' site:peotv.com' },
@@ -23,8 +29,13 @@ window.showWatchLinks = function (movie) {
       ];
     }
 
+    // Remove any existing popup first, so clicks never stack up silently.
+    var existing = document.getElementById('cl-watch-overlay');
+    if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
     var overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.85);';
+    overlay.id = 'cl-watch-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,0.85);';
 
     var box = document.createElement('div');
     box.style.cssText = 'background:#18181b;border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;width:100%;max-width:340px;font-family:sans-serif;color:#fff;';
@@ -47,9 +58,7 @@ window.showWatchLinks = function (movie) {
     document.body.appendChild(overlay);
 
     function closeOverlay() {
-      if (overlay && overlay.parentNode) {
-        overlay.parentNode.removeChild(overlay);
-      }
+      if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
     }
 
     overlay.addEventListener('click', function (e) {
@@ -61,5 +70,6 @@ window.showWatchLinks = function (movie) {
 
   } catch (err) {
     console.error('CineLanka watch links error:', err);
+    alert('Sorry, something went wrong opening watch options. Please try again.');
   }
 };
