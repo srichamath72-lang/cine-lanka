@@ -48,6 +48,14 @@
         el.style.display = "none";
       }
     });
+
+    // Shrink the year text shown on the poster itself (top corner / overlay)
+    document.querySelectorAll(".poster-year").forEach(function (el) {
+      if (el.getAttribute("data-resized") === "1") return;
+      el.setAttribute("data-resized", "1");
+      el.style.fontSize = "9px";
+      el.style.opacity = "0.7";
+    });
   }
 
   /* ---------- 3) Fetch + apply real posters ---------- */
