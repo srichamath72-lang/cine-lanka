@@ -1,14 +1,22 @@
-// cinelanka-upgrade.js (v2)
+// cinelanka-upgrade.js (v3)
 // 100% SAFE / ADDITIVE. Does NOT edit, delete, or touch index.html.
-// Fixes from v1:
-//  - More reliable poster matching (logs failures to console for debugging)
-//  - Removes the duplicate year (only shows it once per card)
-//  - Hero section text replaced safely
+//
+// What it does:
+//  1) Hero text replace (generic welcome instead of one movie)
+//  2) Real TMDB posters applied to the existing 17 static movies
+//  3) Removes the duplicate/large year text, shrinks it
+//  4) Auto-loads ~150 more real movies (with real posters) into the
+//     existing grids, using the EXACT same card markup/classes as the
+//     site already uses, so clicking them opens the same-style modal
+//     and "Watch Trailer" works identically.
+//  5) Hooks into the existing search box so typing also searches TMDB's
+//     full catalog (10,000+ titles) and shows extra matching results.
 
 (function () {
   var TMDB_KEY = "7b4c9174531b7e8770e7b887ce7de165";
   var IMG_BASE = "https://image.tmdb.org/t/p/w342";
   var posterCache = {};
+  var tmdbMovieById = {}; // store full TMDB movie objects for click handling
 
   function safe(fn, label) {
     try { fn(); } catch (e) { console.error("cinelanka-upgrade [" + label + "]:", e); }
@@ -34,13 +42,12 @@
     if (heroBtns) heroBtns.style.display = "none";
   }
 
-  /* ---------- 2) Remove duplicate year on cards ---------- */
+  /* ---------- 2) Year cleanup ---------- */
 
   function dedupeYears() {
     document.querySelectorAll(".card-sub").forEach(function (el) {
       if (el.getAttribute("data-deduped") === "1") return;
       el.setAttribute("data-deduped", "1");
-      // card-sub originally shows "YEAR · GENRE" - keep only the genre part
       var parts = el.textContent.split("·");
       if (parts.length > 1) {
         el.textContent = parts.slice(1).join("·").trim();
@@ -49,7 +56,6 @@
       }
     });
 
-    // Shrink the year text shown on the poster itself (top corner / overlay)
     document.querySelectorAll(".poster-year").forEach(function (el) {
       if (el.getAttribute("data-resized") === "1") return;
       el.setAttribute("data-resized", "1");
@@ -58,7 +64,7 @@
     });
   }
 
-  /* ---------- 3) Fetch + apply real posters ---------- */
+  /* ---------- 3) Poster fetching ---------- */
 
   function fetchPoster(title, year) {
     var key = (title + "_" + (year || "")).toLowerCase();
@@ -73,31 +79,27 @@
         var first = data.results && data.results[0];
         var full = first && first.poster_path ? IMG_BASE + first.poster_path : null;
         posterCache[key] = full;
-        if (!full) console.warn("No TMDB poster found for:", title, year);
         return full;
       })
-      .catch(function (e) {
-        console.error("TMDB fetch failed for:", title, e);
-        return null;
-      });
+      .catch(function () { return null; });
   }
 
-  function applyImage(box, url) {
+  function applyImageAndHideIcon(box, url) {
     if (!box || !url) return;
     box.style.backgroundImage = "url('" + url + "')";
     box.style.backgroundSize = "cover";
     box.style.backgroundPosition = "center";
-    // Fade out the emoji/icon layer if present (first child div with text)
+    // Hide the 🎬 emoji layer that sits on top of the gradient background
     var children = box.children;
     for (var i = 0; i < children.length; i++) {
-      if (children[i].textContent && children[i].textContent.trim() === "🎬") {
-        children[i].style.opacity = "0";
+      var txt = children[i].textContent ? children[i].textContent.trim() : "";
+      if (txt === "🎬" || txt === "🎥") {
+        children[i].style.display = "none";
       }
     }
   }
 
-  function applyRealPosters() {
-    // Card posters (grid view)
+  function applyRealPostersToExisting() {
     document.querySelectorAll(".poster-wrap").forEach(function (wrap) {
       try {
         var bg = wrap.querySelector(".poster-bg");
@@ -112,11 +114,10 @@
         var year = yearEl ? (yearEl.textContent.match(/\d{4}/) || [])[0] : null;
 
         bg.setAttribute("data-poster-done", "1");
-        fetchPoster(title, year).then(function (url) { applyImage(bg, url); });
+        fetchPoster(title, year).then(function (url) { applyImageAndHideIcon(bg, url); });
       } catch (e) { console.error("Card poster error:", e); }
     });
 
-    // Modal poster (when a movie detail popup is open)
     document.querySelectorAll(".modal-hero").forEach(function (hero) {
       try {
         if (hero.getAttribute("data-poster-done") === "1") return;
@@ -129,22 +130,204 @@
         var year = metaEl ? (metaEl.textContent.match(/\d{4}/) || [])[0] : null;
 
         hero.setAttribute("data-poster-done", "1");
-        fetchPoster(title, year).then(function (url) { applyImage(hero, url); });
+        fetchPoster(title, year).then(function (url) { applyImageAndHideIcon(hero, url); });
       } catch (e) { console.error("Modal poster error:", e); }
     });
   }
 
-  /* ---------- Run safely, repeatedly (for re-renders) ---------- */
+  /* ---------- 4) Build a card using the SAME markup/classes as the app ---------- */
+
+  function buildCardElement(movie) {
+    var poster = movie.poster_path ? IMG_BASE + movie.poster_path : "";
+    var rating = movie.vote_average ? movie.vote_average.toFixed(1) : "N/A";
+    var title = (movie.title || "Untitled");
+    var safeTitle = title.replace(/</g, "&lt;");
+
+    var card = document.createElement("div");
+    card.className = "card";
+    card.setAttribute("data-tmdb-id", movie.id);
+
+    card.innerHTML =
+      '<div class="poster-wrap">' +
+        '<div class="poster-bg" style="background-image:url(\'' + poster + '\');background-size:cover;background-position:center;" data-poster-done="1"></div>' +
+        '<div class="poster-shade"></div>' +
+        '<div class="poster-info">' +
+          '<div class="poster-title">' + safeTitle + '</div>' +
+        '</div>' +
+        '<div class="poster-rating">⭐ ' + rating + '</div>' +
+        '<div class="poster-play"><div class="poster-play-btn">▶</div></div>' +
+      '</div>' +
+      '<div class="card-meta">' +
+        '<div class="card-title">' + safeTitle + '</div>' +
+      '</div>';
+
+    card.addEventListener("click", function () {
+      openTmdbMovieModal(movie);
+    });
+
+    return card;
+  }
+
+  /* ---------- 5) Modal for TMDB-sourced movies (same visual style) ---------- */
+
+  function openTmdbMovieModal(movie) {
+    try {
+      var existing = document.getElementById("cl-tmdb-modal");
+      if (existing && existing.parentNode) existing.parentNode.removeChild(existing);
+
+      var poster = movie.poster_path ? IMG_BASE.replace("w342", "w500") + movie.poster_path : "";
+      var rating = movie.vote_average ? movie.vote_average.toFixed(1) : "N/A";
+      var year = (movie.release_date || "").slice(0, 4) || "—";
+      var title = movie.title || "Untitled";
+      var overview = movie.overview || "No description available.";
+
+      var overlay = document.createElement("div");
+      overlay.id = "cl-tmdb-modal";
+      overlay.className = "modal-overlay";
+      overlay.style.zIndex = "9998";
+
+      overlay.innerHTML =
+        '<div class="modal" onclick="event.stopPropagation()">' +
+          '<div class="modal-hero" style="background-image:url(\'' + poster + '\');background-size:cover;background-position:center;">' +
+            '<div class="modal-shade"></div>' +
+            '<button class="modal-close" id="cl-tmdb-close">✕</button>' +
+            '<div class="modal-titlewrap">' +
+              '<div class="modal-tags"><span class="tag tag-soft">🌍 World Cinema</span></div>' +
+              '<h2 class="modal-title">' + title + '</h2>' +
+            '</div>' +
+          '</div>' +
+          '<div class="modal-body">' +
+            '<div class="modal-meta"><span class="star-gold">⭐ ' + rating + '/10</span><span>' + year + '</span></div>' +
+            '<p class="modal-desc">' + overview + '</p>' +
+            '<div class="modal-actions">' +
+              '<button class="btn btn-white btn-sm" id="cl-tmdb-watch">▶ Watch Trailer</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) overlay.remove();
+      });
+      var closeBtn = document.getElementById("cl-tmdb-close");
+      if (closeBtn) closeBtn.addEventListener("click", function () { overlay.remove(); });
+
+      var watchBtn = document.getElementById("cl-tmdb-watch");
+      if (watchBtn) {
+        watchBtn.addEventListener("click", function () {
+          if (window.showWatchLinks) {
+            window.showWatchLinks({ title: title, year: year, type: "world" });
+          }
+        });
+      }
+    } catch (e) {
+      console.error("openTmdbMovieModal error:", e);
+    }
+  }
+
+  /* ---------- 6) Auto-load ~150 movies into existing grids ---------- */
+
+  var loadedExtraMovies = false;
+
+  function loadExtraMovies() {
+    if (loadedExtraMovies) return;
+    loadedExtraMovies = true;
+
+    var targetGrid = document.querySelectorAll(".grid")[document.querySelectorAll(".grid").length - 1];
+    if (!targetGrid) { loadedExtraMovies = false; return; }
+
+    var pagesToFetch = [1, 2, 3, 4, 5, 6, 7]; // ~140 movies (20 per page)
+    pagesToFetch.forEach(function (page) {
+      fetch("https://api.themoviedb.org/3/movie/popular?api_key=" + TMDB_KEY + "&page=" + page)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var results = data.results || [];
+          results.forEach(function (movie) {
+            tmdbMovieById[movie.id] = movie;
+            targetGrid.appendChild(buildCardElement(movie));
+          });
+        })
+        .catch(function (e) { console.error("Extra movies fetch failed (page " + page + "):", e); });
+    });
+  }
+
+  /* ---------- 7) Hook into existing search box ---------- */
+
+  var searchHooked = false;
+  var searchDebounce = null;
+
+  function hookSearch() {
+    if (searchHooked) return;
+    var input = document.querySelector(".search-input");
+    if (!input) return;
+    searchHooked = true;
+
+    input.addEventListener("input", function () {
+      var query = input.value.trim();
+      clearTimeout(searchDebounce);
+      if (!query) {
+        removeSearchResultsSection();
+        return;
+      }
+      searchDebounce = setTimeout(function () { searchTmdb(query); }, 500);
+    });
+  }
+
+  function removeSearchResultsSection() {
+    var el = document.getElementById("cl-search-extra");
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+  }
+
+  function searchTmdb(query) {
+    fetch("https://api.themoviedb.org/3/search/movie?api_key=" + TMDB_KEY + "&query=" + encodeURIComponent(query))
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var results = (data.results || []).slice(0, 24);
+        renderSearchResults(results, query);
+      })
+      .catch(function (e) { console.error("Search TMDB failed:", e); });
+  }
+
+  function renderSearchResults(results, query) {
+    removeSearchResultsSection();
+    var main = document.querySelector("main");
+    if (!main) return;
+
+    var section = document.createElement("div");
+    section.id = "cl-search-extra";
+    section.className = "section";
+    section.innerHTML =
+      '<div class="section-header"><h2 class="section-title">🔎 More results for "' + query + '"</h2></div>' +
+      '<div class="grid" id="cl-search-grid"></div>';
+
+    main.appendChild(section);
+    var grid = document.getElementById("cl-search-grid");
+    if (!grid) return;
+
+    results.forEach(function (movie) {
+      tmdbMovieById[movie.id] = movie;
+      grid.appendChild(buildCardElement(movie));
+    });
+  }
+
+  /* ---------- Run everything safely ---------- */
 
   function runAll() {
     safe(upgradeHero, "hero");
     safe(dedupeYears, "dedupe-years");
-    safe(applyRealPosters, "posters");
+    safe(applyRealPostersToExisting, "posters");
+    safe(loadExtraMovies, "load-extra");
+    safe(hookSearch, "hook-search");
   }
 
   function start() {
     runAll();
-    setInterval(runAll, 1500);
+    setInterval(function () {
+      safe(applyRealPostersToExisting, "posters-rescan");
+      safe(dedupeYears, "dedupe-years-rescan");
+      safe(hookSearch, "hook-search-rescan");
+    }, 1800);
   }
 
   if (document.readyState === "complete") {
