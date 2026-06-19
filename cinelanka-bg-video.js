@@ -44,7 +44,7 @@
     var overlay = document.createElement("div");
     overlay.style.cssText =
       "position:absolute;inset:0;" +
-      "background:rgba(9,9,11,0.78);"; // stronger overlay so movies are clearly visible
+      "background:rgba(9,9,11,0.55);"; // lighter so the video shows through more clearly
 
     // An invisible click-blocker placed directly over the iframe (separate
     // from the overlay) ensures no YouTube control (play/pause icon) can
