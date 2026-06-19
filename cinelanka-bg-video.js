@@ -8,16 +8,38 @@
     try { fn(); } catch (e) { console.error("cinelanka-bg-video [" + label + "]:", e); }
   }
 
-  var YOUTUBE_VIDEO_ID = "f_7JcXeQOdM"; // Creative Commons film reel loop
+  // YouTube Shorts එකේ විදිහටම ලස්සනට ගැලපෙන 3D Film Reel Background Video එකක්
+  var YOUTUBE_VIDEO_ID = "f_7JcXeQOdM"; 
 
   function injectBackgroundVideo() {
     if (document.getElementById("cl-bg-video-wrap")) return;
+
+    // 🚨 FORCE FIX: සයිට් එකේ පරණ කළු පසුබිම් නිසා වීඩියෝ එක වැහෙන එක 100%ක්ම වැළැක්වීමට CSS Styles ඇතුල් කිරීම
+    var style = document.createElement('style');
+    style.textContent = `
+      html, body {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      /* සයිට් එකේ ප්‍රධාන containers විනිවිද පෙනෙන (Transparent) කිරීම */
+      #app, main, section, .hero, .movies-container, .container, .wrapper {
+        background: transparent !important;
+        background-color: transparent !important;
+      }
+      /* මූවි කාඩ්ස් ලස්සනට මතු වෙන්න ඒවාට පොඩි Dark Background එකක් දීම */
+      .movie-card, .card, .trending-now, .top-rated {
+        background-color: rgba(15, 15, 20, 0.5) !important;
+        backdrop-filter: blur(8px);
+        border-radius: 8px;
+      }
+    `;
+    document.head.appendChild(style);
 
     var wrap = document.createElement("div");
     wrap.id = "cl-bg-video-wrap";
     wrap.style.cssText =
       "position:fixed;top:0;left:0;width:100vw;height:100vh;" +
-      "z-index:-1;overflow:hidden;pointer-events:none;background:#09090b;";
+      "z-index:-9999 !important;overflow:hidden;pointer-events:none;background:#060608;"; // z-index එක -9999 කර පසුබිමටම තල්ලු කලා
 
     var clipper = document.createElement("div");
     clipper.style.cssText = "position:absolute;inset:0;overflow:hidden;pointer-events:none;";
@@ -33,12 +55,13 @@
     iframe.style.cssText =
       "position:absolute;top:50%;left:50%;" +
       "width:100vw;height:177.78vw;min-height:100vh;min-width:177.78vh;" +
-      "transform:translate(-50%,-50%) scale(1.3);border:none;pointer-events:none;";
+      "transform:translate(-50%,-50%) scale(1.4);border:none;pointer-events:none;opacity:0.25;"; // වීඩියෝ එක ලස්සනට පේන්න opacity එක 0.25 කලා
 
+    // YouTube Shorts එකේ තිබුණු Dark Red/Black Vibe එක දීමට Overlay එක සැකසීම
     var overlay = document.createElement("div");
     overlay.style.cssText =
       "position:absolute;inset:0;" +
-      "background:linear-gradient(180deg,rgba(9,9,11,0.55) 0%,rgba(9,9,11,0.6) 50%,rgba(9,9,11,0.75) 100%);";
+      "background:radial-gradient(circle at center, rgba(61, 20, 29, 0.45) 0%, rgba(6, 6, 8, 0.93) 80%);z-index:2;";
 
     var clickBlocker = document.createElement("div");
     clickBlocker.style.cssText = "position:absolute;inset:0;z-index:5;background:transparent;";
@@ -52,15 +75,12 @@
     document.body.style.background = "transparent";
   }
 
-  // Also make the main content containers' solid backgrounds slightly
-  // transparent so the video shows through site sections too, not just
-  // the very edges. This only adjusts inline style (a visual tweak),
-  // never removes or restructures any element.
   function makeMainBgTransparent() {
     var bgEl = document.querySelector(".navbar");
     if (bgEl && bgEl.getAttribute("data-bg-tweaked") !== "1") {
       bgEl.setAttribute("data-bg-tweaked", "1");
-      bgEl.style.background = "rgba(9,9,11,0.7)";
+      bgEl.style.background = "rgba(6, 6, 8, 0.7)";
+      bgEl.style.backdropFilter = "blur(10px)";
     }
   }
 
