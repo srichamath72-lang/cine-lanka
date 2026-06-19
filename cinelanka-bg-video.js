@@ -28,16 +28,18 @@
     iframe.src =
       "https://www.youtube.com/embed/" + YOUTUBE_VIDEO_ID +
       "?autoplay=1&mute=1&loop=1&playlist=" + YOUTUBE_VIDEO_ID +
-      "&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1";
+      "&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&fs=0&playsinline=1&enablejsapi=0";
     iframe.title = "Background video";
     iframe.setAttribute("allow", "autoplay; encrypted-media");
+    iframe.setAttribute("tabindex", "-1");
     iframe.style.cssText =
       "position:absolute;" +
       "top:50%;left:50%;" +
       "width:100vw;height:177.78vw;" +   // ensures full coverage on portrait screens
       "min-height:100vh;min-width:177.78vh;" +
-      "transform:translate(-50%,-50%);" +
-      "border:none;";
+      "transform:translate(-50%,-50%) scale(1.3);" + // scale up to crop out any residual YouTube UI edges
+      "border:none;" +
+      "pointer-events:none;";
 
     var overlay = document.createElement("div");
     overlay.style.cssText =
